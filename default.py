@@ -220,6 +220,10 @@ def show_server_menu(params):
     url = build_url({'mode': 'queue', 'idx': idx})
     xbmcplugin.addDirectoryItem(HANDLE, url, xbmcgui.ListItem('Current queue'), True)
 
+    # Now Playing
+    url = build_url({'mode': 'now_playing', 'idx': idx})
+    xbmcplugin.addDirectoryItem(HANDLE, url, xbmcgui.ListItem('Now playing'), True)
+
     # Controls
     url = build_url({'mode': 'controls', 'idx': idx})
     xbmcplugin.addDirectoryItem(HANDLE, url, xbmcgui.ListItem('Player controls'), True)
@@ -341,11 +345,17 @@ def control_action(params):
     client, p = connect_profile(idx)
     try:
         if act == 'toggle':
-            st = client.status()
-            if st.get('state') == 'play':
-                client.pause()
-            else:
-                client.play()
+            # prefer MPD 'toggle' command if supported, else fallback to status-based toggle
+            try:
+                client.command('toggle')
+                write_log('control_action: used MPD toggle command')
+            except Exception as e_toggle:
+                write_log('control_action: toggle command failed: %s; falling back' % e_toggle)
+                st = client.status()
+                if st.get('state') == 'play':
+                    client.pause()
+                else:
+                    client.play()
         elif act == 'stop':
             client.stop()
         elif act == 'next':
@@ -515,6 +525,48 @@ def show_album_tracks(params):
     xbmcplugin.endOfDirectory(HANDLE)
 
 
+def show_now_playing(params):
+    idx = params.get('idx')
+    client, p = connect_profile(idx)
+    try:
+        st = client.status()
+        cs = client.currentsong()
+        title = cs.get('Title') or cs.get('file') or 'Unknown'
+        artist = cs.get('Artist') or ''
+        album = cs.get('Album') or ''
+        label = '%s - %s' % (artist, title) if artist else title
+        li = xbmcgui.ListItem(label)
+        li.setInfo('music', {'title': title, 'artist': artist, 'album': album})
+        try:
+            art = None
+            if cs.get('file'):
+                art = ensure_art(cs.get('file'), client)
+            if art:
+                li.setArt({'thumb': art, 'icon': art, 'fanart': art})
+        except Exception as e:
+            write_log('show_now_playing: ensure_art failed: %s' % e)
+
+        # context menu actions
+        try:
+            cmds = []
+            cmds.append(('Toggle Play/Pause', 'RunPlugin(%s)' % build_url({'mode': 'control_action', 'idx': idx, 'action': 'toggle'})))
+            cmds.append(('Next', 'RunPlugin(%s)' % build_url({'mode': 'control_action', 'idx': idx, 'action': 'next'})))
+            cmds.append(('Previous', 'RunPlugin(%s)' % build_url({'mode': 'control_action', 'idx': idx, 'action': 'previous'})))
+            li.addContextMenuItems(cmds)
+        except Exception:
+            pass
+
+        xbmcplugin.setPluginCategory(HANDLE, 'Now Playing')
+        xbmcplugin.addDirectoryItem(HANDLE, '#', li, False)
+        xbmcplugin.endOfDirectory(HANDLE)
+    except Exception as e:
+        write_log('show_now_playing failed: %s' % e)
+        try:
+            xbmcgui.Dialog().notification('MPD', 'Failed to retrieve now playing', time=1500)
+        except Exception:
+            pass
+
+
 def add_to_queue_action(params):
     idx = params.get('idx')
     file_path = params.get('file')
@@ -661,6 +713,8 @@ def router():
         show_artist_albums(params)
     elif mode == 'album_tracks':
         show_album_tracks(params)
+    elif mode == 'now_playing':
+        show_now_playing(params)
     elif mode == 'add_to_queue':
         add_to_queue_action(params)
     elif mode == 'pick_playlist_for_add':
