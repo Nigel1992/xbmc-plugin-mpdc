@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+build/
+dist/
+.DS_Store
+.vscode/
+.idea/
+*.egg-info/
+
+# Kodi addon data and logfiles
+userdata/
+*.log
+
+# art cache
+addon_data/plugin.audio.mpdc/artcache/
