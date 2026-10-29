@@ -3,6 +3,8 @@
 
 # MPD Control (MPDC) — Kodi Addon
 
+[![Vibe Coded](https://img.shields.io/badge/Vibe_Coded-✨-8A2BE2?style=for-the-badge)](https://github.com)
+
 MPDC is a Kodi audio addon that lets you control remote MPD (Music Player Daemon)
 servers from inside Kodi. It provides browsing (files, artists, albums), player
 controls, playlist management, server profiles, and album art caching — playback
